@@ -8,6 +8,7 @@ import pytz
 xtai = tc.get_calendar("XTAI")
 
 from utils import Config, check_folder_path_exist
+from tsdb_client import TSDBClient
 
 config = Config()
 
@@ -23,8 +24,8 @@ status_lots_index = 2
 status_in_date_index = 3
 status_expected_out_date_index = 4
 
-if __name__ == "__main__":
 
+def xq_output_to_print():
     config = Config()
     
     counter = 1
@@ -67,5 +68,55 @@ if __name__ == "__main__":
         f_buy.close()
         f_sell.close()
         status.close()
+
+
+def out_action():
     
+    config = Config()
+    cli = TSDBClient(
+        host="128.110.25.99",
+        port=5432,
+        user="chiubj",
+        password="bunnygood",
+        db="accountdb"
+        )
+    cur_status = cli.execute_query(f'''
+    SELECT * FROM dealer.status where out_date = '{datetime.datetime.now().strftime("%Y-%m-%d")}'
+    ''', out_type='df')
+    strategy_df = cli.execute_query('''
+    SELECT * FROM dealer.strategy
+    ''', 
+        out_type='df')
     
+    counter = 1
+
+    for index, row in cur_status.iterrows():
+
+        strategy_name = strategy_df[strategy_df['id'] == row.strategy]['name'].values[0]
+        strategy_print_path = f"{config.signal_print_path}{strategy_name}"
+        f_buy = open(f"{strategy_print_path}\Buy.log", 'a+')
+        f_sell = open(f"{strategy_print_path}\Sell.log", 'a+')
+        cur_contracts_df = cli.execute_query(f'''
+            SELECT * FROM sino.contracts where code = '{row.code}'
+            ''', out_type='df')
+        
+        if row.security_type == 'S': security_type = 'Stock' 
+        if row.security_type == 'F': security_type = 'Futures'
+        action = 'S' if row.qty > 0 else 'B'
+
+        signal_list = [f'O{counter}', security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', action, str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_down'].values[0]]
+        counter += 1
+
+        if action == 'B':
+            f_buy.write(','.join(signal_list) + '\n')
+        elif action == 'S':
+            f_sell.write(','.join(signal_list) + '\n')
+
+        f_buy.close()
+        f_sell.close()
+    
+
+if __name__ == "__main__":
+
+    xq_output_to_print()
+    out_action()
