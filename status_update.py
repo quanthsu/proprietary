@@ -52,14 +52,14 @@ order by t_pos.strategy, t_pos.code
 status_list = []
 
 for i in range(len(trade_df)):
-    if datetime.date(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day) == date(trade_df.iloc[i]['trade_date'].year, trade_df.iloc[i]['trade_date'].month, trade_df.iloc[i]['trade_date'].day):
+    if datetime.date(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day) == datetime.date(trade_df.iloc[i]['trade_date'].year, trade_df.iloc[i]['trade_date'].month, trade_df.iloc[i]['trade_date'].day):
         strategy_id = int(strategy_df[strategy_df['name'] == trade_df.iloc[i]['策略']]['id'])
         holding_period = int(strategy_df[strategy_df['name'] == trade_df.iloc[i]['策略']]['holding_period'])
         in_date = trade_df.iloc[i]['trade_date']
         out_date = datetime.datetime.date(xtai.sessions_window(pd.Timestamp(in_date.strftime("%Y-%m-%d")), holding_period)[-1])
             
         status_list.append([strategy_id, 'S', trade_df.iloc[i]['代碼'], trade_df.iloc[i]['成本價'], trade_df.iloc[i]['部位'], in_date, out_date])
-    
+
 
 cli.execute_values_df(df = pd.DataFrame(status_list, columns=['strategy', 'security_type', 'code', 'cost', 'qty', 'in_date', 'out_date']), table = 'dealer.status')
 
