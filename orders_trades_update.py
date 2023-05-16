@@ -1,40 +1,90 @@
-import psycopg2
 import pandas as pd
-import datetime
+import datetime as dt
 
-conn = psycopg2.connect(database="accountdb", user="chiubj", 
-                        password="bunnygood", host="128.110.25.99", 
-                        port="5432")
-cur  = conn.cursor()
-
-orders = pd.read_csv('status/orders.csv')
-orders['委託日期'] = pd.to_datetime(orders['委託日期'])
-trades = pd.read_csv('status/trades.csv')
-trades['成交日期'] = pd.to_datetime(trades['成交日期'])
+from tsdb_client import TSDBClient
+from utils.Config import EnvConfig
 
 
-for order_index in range(len(orders)):
-    if datetime.date(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day) == datetime.date(orders.iloc[order_index]['委託日期'].year, orders.iloc[order_index]['委託日期'].month, orders.iloc[order_index]['委託日期'].day):
-        record = [str(orders.iloc[order_index]['交易員代碼']), orders.iloc[order_index]['委託書號'], orders.iloc[order_index]['交易別'], orders.iloc[order_index]['委託日期'], orders.iloc[order_index]['委託時間'],
-        str(orders.iloc[order_index]['代碼']), orders.iloc[order_index]['委託種類'], orders.iloc[order_index]['方向'], int(orders.iloc[order_index]['委託部位']), 
-        float(orders.iloc[order_index]['委託價格']), orders.iloc[order_index]['狀態'], str(orders.iloc[order_index]['策略別'])]
-
-        table_columns = '(trader_id, order_id, security_type, order_date, order_time, code, order_type, action, order_qty, order_price, status, strategy)'
-        postgres_insert_query = f"""INSERT INTO accountdb.dealer.orders {table_columns} VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"""
-        cur.execute(postgres_insert_query, record)
-
-        conn.commit()
+def load_orders(path: str):
+    return pd.read_csv(path, dtype=str)
 
 
-for trade_index in range(len(trades)):
-    if datetime.date(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day) == datetime.date(trades.iloc[trade_index]['成交日期'].year, trades.iloc[trade_index]['成交日期'].month, trades.iloc[trade_index]['成交日期'].day):
-        record = [str(trades.iloc[trade_index]['交易員代碼']), trades.iloc[trade_index]['委託書號'], trades.iloc[trade_index]['交易別'], trades.iloc[trade_index]['成交日期'], trades.iloc[trade_index]['成交時間'],
-        str(trades.iloc[trade_index]['代碼']), trades.iloc[trade_index]['委託種類'], trades.iloc[trade_index]['方向'], int(trades.iloc[trade_index]['成交部位']), 
-        float(trades.iloc[trade_index]['成交價格']), trades.iloc[trade_index]['狀態'], str(trades.iloc[trade_index]['策略別']), trades.iloc[trade_index]['成交序號 (seqno)']]
+def process_orders(df: pd.DataFrame):
+    col_mapping = {
+        "交易員代碼": "trader_id",
+        "委託書號": "order_id",
+        "交易別": "security_type",
+        "委託日期": "order_date",
+        "委託時間": "order_time",
+        "代碼": "code",
+        "委託種類": "order_type",
+        "方向": "action",
+        "委託部位": "order_qty",
+        "委託價格": "order_price",
+        "狀態": "status",
+        "策略別": "strategy",
+    }
+    df.rename(columns=col_mapping, inplace=True)
 
-        table_columns = '(trader_id, order_id, security_type, trade_date, trade_time, code, order_type, action, qty, price, status, strategy, seqno)'
-        postgres_insert_query = f"""INSERT INTO accountdb.dealer.trades {table_columns} VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"""
-        cur.execute(postgres_insert_query, record)
 
-        conn.commit()
+def load_trades(path: str):
+    return pd.read_csv(path, dtype=str)
 
+
+def process_trades(df: pd.DataFrame):
+    col_mapping = {
+        "交易員代碼": "trader_id",
+        "委託書號": "order_id",
+        "交易別": "security_type",
+        "成交日期": "trade_date",
+        "成交時間": "trade_time",
+        "代碼": "code",
+        "委託種類": "order_type",
+        "方向": "action",
+        "成交部位": "qty",
+        "成交價格": "price",
+        "狀態": "status",
+        "策略別": "strategy",
+        "成交序號 (seqno)": "seqno",
+    }
+    df.rename(columns=col_mapping, inplace=True)
+
+
+def save2db(df: pd.DataFrame, table: str):
+    cli = TSDBClient(
+        host=EnvConfig.DB_HOST,
+        port=EnvConfig.DB_PORT,
+        user=EnvConfig.DB_USER,
+        password=EnvConfig.DB_PASSWORD,
+        db=EnvConfig.DB_DATABASE,
+    )
+    if table == "dealer.orders":
+        date_ = "order_date"
+    else:
+        date_ = "trade_date"
+
+    max_date: dt.datetime = cli.execute_query(f"select max({date_}) from {table}")[0][0]
+    # only insert new data
+    if max_date is not None:
+        cond = pd.to_datetime(df[date_]) > pd.to_datetime(max_date)
+        df = df.loc[cond]
+
+    result = cli.execute_values_df(df, table)
+    if result == 1:
+        raise Exception("save2db error")
+
+
+def pipline():
+    # orders
+    df_orders = load_orders("status/orders.csv")
+    process_orders(df_orders)
+    save2db(df_orders, table="dealer.orders")
+
+    # trades
+    df_trades = load_trades("status/trades.csv")
+    process_trades(df_trades)
+    save2db(df_trades, table="dealer.trades")
+
+
+if __name__ == "__main__":
+    pipline()

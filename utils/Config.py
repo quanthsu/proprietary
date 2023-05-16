@@ -3,6 +3,8 @@ import configparser
 import json
 import datetime
 import os
+config = configparser.ConfigParser()
+config.read("config.ini")
 
 class Config():
     def __init__(self):
@@ -32,3 +34,12 @@ class Config():
                 
         self.strategy_config = configparser.ConfigParser()
         self.strategy_config.read(config['file']['strategy_config'], encoding='utf-8')
+
+
+class EnvConfig:
+    # database
+    DB_HOST = config["database"]["DB_HOST"]
+    DB_PORT = int(config["database"]["DB_PORT"])
+    DB_USER = config["database"]["DB_USER"]
+    DB_PASSWORD = config["database"]["DB_PASSWORD"]
+    DB_DATABASE = config["database"]["DB_DATABASE"]
