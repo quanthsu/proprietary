@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     for xq_output_path in config.xq_output_paths:
         strategy_file_name = xq_output_path.split('\\')[-1]
-        strategy_name = strategy_file_name[9:-6]
+        strategy_name = strategy_file_name[9:-4]
         
         strategy_print_path = f"{config.signal_print_path}{strategy_name}"
         strategy_backup_path = f"{nowtime_path}\{strategy_name}"

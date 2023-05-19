@@ -76,7 +76,6 @@ def process_trades(deal: pd.DataFrame, order: pd.DataFrame):
 
     deal['strategy'] = 0    
     for index, row in deal.iterrows():
-        
         deal.loc[index, 'strategy'] = order[order['order_id'] == row.order_id]['strategy'].values[0]
 
     return deal
@@ -104,7 +103,7 @@ def pipline():
     # orders
     df_orders = load_orders("status/Order.txt")
     df_orders = process_orders(df_orders)
-    save2db(df_orders[df_orders['status'].isna()], table="dealer.orders")
+    save2db(df_orders, table="dealer.orders")
 
     # trades
     df_trades = load_trades("status/Deal.txt")
