@@ -94,7 +94,6 @@ for i in range(len(trade_df)):
             ]
         )
 
-
 cli.execute_values_df(
     df=pd.DataFrame(
         status_list,

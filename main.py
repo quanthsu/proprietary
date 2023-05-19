@@ -95,7 +95,7 @@ def xq_output_to_print():
     for xq_output_path in config.xq_output_paths:
 
         strategy_file_name = xq_output_path.split('\\')[-1]
-        strategy_name = strategy_file_name[9:-6]
+        strategy_name = strategy_file_name[9:-4]
         slr = config.strategy_info[strategy_name]['Leverage_Ratio']
         holding_period = int(config.strategy_config[strategy_name]['holding_period'])
         start_date = datetime.datetime.now().strftime("%Y-%m-%d")
