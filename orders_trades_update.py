@@ -65,8 +65,9 @@ def process_orders(order: pd.DataFrame):
 
 
 def load_trades(path: str):
-    return pd.read_csv(path, header = None,
+    trades = pd.read_csv(path, header = None,
         names = ['trader_id','order_id', 'security_type', 'trade_time', 'code', 'order_type', 'action', 'qty', 'price', 'status'], dtype='str')
+    return trades[['trader_id','order_id', 'security_type', 'trade_time', 'code', 'order_type', 'action', 'qty', 'price']]
 
 def process_trades(deal: pd.DataFrame, order: pd.DataFrame):
     deal['security_type'] = deal['security_type'].apply(security_type_transform)
@@ -76,6 +77,7 @@ def process_trades(deal: pd.DataFrame, order: pd.DataFrame):
 
     deal['strategy'] = 0    
     for index, row in deal.iterrows():
+        #print(index, row.order_id)
         deal.loc[index, 'strategy'] = order[order['order_id'] == row.order_id]['strategy'].values[0]
 
     return deal
@@ -99,6 +101,21 @@ def save2db(df: pd.DataFrame, table: str):
         raise Exception("save2db error")
 
 
+def save2db_trade(df: pd.DataFrame, table: str):
+    dealer_trades = cli.execute_query(f"select * from dealer.trades", out_type='df')
+    append_index_list = []
+    
+    for index, row in df.iterrows():
+        cur_dealer_trades = dealer_trades[(dealer_trades['order_id'] == str(row.order_id)) & (dealer_trades['code'] == str(row.code)) & 
+        (dealer_trades['qty'] == int(row.qty)) & (dealer_trades['price'].astype('float') == float(row.price))]
+        if len(cur_dealer_trades) == 0:
+            append_index_list.append(index)
+
+    result = cli.execute_values_df(df.iloc[append_index_list], table)
+    if result == 1:
+        raise Exception("save2db error")
+
+
 def pipline():
     # orders
     df_orders = load_orders("status/Order.txt")
@@ -108,7 +125,7 @@ def pipline():
     # trades
     df_trades = load_trades("status/Deal.txt")
     df_trades = process_trades(df_trades, df_orders)
-    save2db(df_trades, table="dealer.trades")
+    save2db_trade(df_trades, table="dealer.trades")
 
 
 if __name__ == "__main__":
