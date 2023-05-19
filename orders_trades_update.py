@@ -5,49 +5,67 @@ from tsdb_client import TSDBClient
 from utils.Config import EnvConfig
 
 
+def time_transform(time):
+    return datetime.datetime.strptime(time, '%H%M%S').time()
+
+def security_type_transform(security_type):
+    if security_type == "現股":
+        return 'S'
+    elif security_type == "期貨":
+        return 'F'
+
+def action_transform(action):
+    if action == 'Buy': return 'B'
+    if action == 'Sell': return 'S'
+        
+
 def load_orders(path: str):
-    return pd.read_csv(path, dtype=str)
+    return pd.read_csv('status/Order.txt', header = None,
+        names = ['trader_id','order_id', 'security_type', 'order_time', 'code', 'order_type', 'action', 'order_qty', 'order_price', 'status'],
+        dtype='str')
 
 
-def process_orders(df: pd.DataFrame):
-    col_mapping = {
-        "交易員代碼": "trader_id",
-        "委託書號": "order_id",
-        "交易別": "security_type",
-        "委託日期": "order_date",
-        "委託時間": "order_time",
-        "代碼": "code",
-        "委託種類": "order_type",
-        "方向": "action",
-        "委託部位": "order_qty",
-        "委託價格": "order_price",
-        "狀態": "status",
-        "策略別": "strategy",
-    }
-    df.rename(columns=col_mapping, inplace=True)
+def process_orders(order: pd.DataFrame):
+    order['security_type'] = order['security_type'].apply(security_type_transform)
+    order['order_time'] = order['order_time'].apply(time_transform)
+    order['order_date'] = datetime.datetime.now().date()
+    order['action'] = order['action'].apply(action_transform)
+
+    strategy_df = cli.execute_query('''
+        SELECT * FROM dealer.strategy
+        ''', 
+            out_type='df')
+
+    order['strategy'] = 0
+    for strategy_name in strategy_df['name']:
+        buy_log = pd.read_csv(f'print/{strategy_name}/Buy.log', header = None, names = ['serial', 'security_type', 'timestamp', 'code', 'order_type', 'action', 'order_qty', 'order_price'])
+        
+        for index, row in buy_log.iterrows():
+
+            cur_order = order[(order['security_type'] == row.security_type[0]) & (order['code'] == str(row.code)) & (order['order_type'] == row.order_type) & 
+            (order['action'] == row.action) & (order['order_price'].astype('float') == row.order_price)]
+            
+            for index in cur_order.index:
+                order.loc[index, 'strategy'] = int(strategy_df[strategy_df['name'] == strategy_name]['id'].values[0])
+
+    return order
 
 
 def load_trades(path: str):
-    return pd.read_csv(path, dtype=str)
+    return pd.read_csv(path, header = None,
+        names = ['trader_id','order_id', 'security_type', 'trade_time', 'code', 'order_type', 'action', 'qty', 'price', 'status'], dtype='str')
 
+def process_trades(deal: pd.DataFrame, order: pd.DataFrame):
+    deal['security_type'] = deal['security_type'].apply(security_type_transform)
+    deal['trade_time'] = deal['trade_time'].apply(time_transform)
+    deal['trade_date'] = datetime.datetime.now().date() 
+    deal['action'] = deal['action'].apply(action_transform)
 
-def process_trades(df: pd.DataFrame):
-    col_mapping = {
-        "交易員代碼": "trader_id",
-        "委託書號": "order_id",
-        "交易別": "security_type",
-        "成交日期": "trade_date",
-        "成交時間": "trade_time",
-        "代碼": "code",
-        "委託種類": "order_type",
-        "方向": "action",
-        "成交部位": "qty",
-        "成交價格": "price",
-        "狀態": "status",
-        "策略別": "strategy",
-        "成交序號 (seqno)": "seqno",
-    }
-    df.rename(columns=col_mapping, inplace=True)
+    deal['strategy'] = 0
+    for index, row in deal.iterrows():
+        deal.loc[index, 'strategy'] = order[order['order_id'] == row.order_id]['strategy'].values[0]
+
+    return deal
 
 
 def save2db(df: pd.DataFrame, table: str):
@@ -76,13 +94,13 @@ def save2db(df: pd.DataFrame, table: str):
 
 def pipline():
     # orders
-    df_orders = load_orders("status/orders.csv")
-    process_orders(df_orders)
-    save2db(df_orders, table="dealer.orders")
+    df_orders = load_orders("status/Order.txt")
+    df_orders = process_orders(df_orders)
+    save2db(df_orders[df_orders['status'].isna()], table="dealer.orders")
 
     # trades
-    df_trades = load_trades("status/trades.csv")
-    process_trades(df_trades)
+    df_trades = load_trades("status/Deal.txt")
+    df_trades = process_trades(df_trades, df_orders)
     save2db(df_trades, table="dealer.trades")
 
 
