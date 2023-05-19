@@ -38,3 +38,8 @@ if __name__ == "__main__":
     for xq_output_path in glob.glob(f'{config.xq_output_path}*'):
         os.remove(xq_output_path)
 
+    with open(config.deal_log, 'r+') as fr:
+        fr.truncate(0)
+    with open(config.order_log, 'r+') as fr:
+        fr.truncate(0)
+        

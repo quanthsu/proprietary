@@ -19,6 +19,8 @@ class Config():
         self.signal_print_backup_path = config["path"]["signal_print_backup_path"]
         self.strategy_status_path = config["path"]["strategy_status_path"]
         self.strategy_names = [strategy_name[:-4] for strategy_name in os.listdir(path=self.strategy_status_path)] 
+        self.deal_log = config["file"]["deal_log"]
+        self.order_log = config['file']['order_log']
 
         with open(config['file']['strategy_info_file'], "r") as f:
             self.strategy_info = json.load(f)
