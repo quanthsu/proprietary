@@ -61,9 +61,9 @@ def output_write(cur_line, strategy_name, lots, counter):
     action = cur_line[xq_buy_or_sell_index]
     order_low_ratio = strategy_df[strategy_df['name'] == strategy_name]['order_low_ratio'].values[0]
 
-    last_close = cli.execute_query(f'''
-        SELECT * FROM public.quote_snapshots where code = '{code}'
-        ''', out_type='df')['close'][0]
+    reference_price = cli.execute_query(f'''
+        SELECT * FROM sino.contracts where code = '{2330}'
+        ''', out_type='df')['reference'][0]
 
     lots_counter = 0
     while lots > 0:
@@ -72,9 +72,9 @@ def output_write(cur_line, strategy_name, lots, counter):
             order_price = cur_line[xq_order_price_index]
         else:
             if action == 'B':
-                _price = _add_spread(last_close, -_spread_cnt((1 + order_low_ratio/100) * last_close, last_close))
+                _price = _add_spread(reference_price, -_spread_cnt((1 + order_low_ratio/100) * reference_price, reference_price))
             else:
-                _price = _add_spread(last_close, _spread_cnt(last_close, (1 + order_low_ratio/100) * last_close))
+                _price = _add_spread(reference_price, _spread_cnt(reference_price, (1 + order_low_ratio/100) * reference_price))
             order_price = '%.2f'%_price
 
         output_list = [f"N{counter}", "Stock", str(datetime.datetime.now().timestamp()), cur_line[xq_stock_id_index][:-3], cur_line[xq_order_type_index], 
@@ -127,6 +127,9 @@ def out_action():
     cur_status = cli.execute_query(f'''
     SELECT * FROM dealer.status where out_date = '{datetime.datetime.now().strftime("%Y-%m-%d")}'
     ''', out_type='df')
+
+    cur_status cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'B')", out_type='df')
+
     strategy_df = cli.execute_query('''
     SELECT * FROM dealer.strategy
     ''', 
