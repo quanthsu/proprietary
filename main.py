@@ -123,10 +123,6 @@ def xq_output_to_print():
 def out_action():
     
     config = Config()
-    
-    cur_status = cli.execute_query(f'''
-    SELECT * FROM dealer.status where out_date = '{datetime.datetime.now().strftime("%Y-%m-%d")}'
-    ''', out_type='df')
 
     cur_status = cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE-1, 'B') union all select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'S')", out_type='df')
 
