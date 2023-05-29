@@ -124,7 +124,7 @@ def out_action():
     
     config = Config()
 
-    cur_status = cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE-1, 'B') union all select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'S')", out_type='df')
+    cur_status = cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'B') union all select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'S')", out_type='df')
 
     strategy_df = cli.execute_query('''
     SELECT * FROM dealer.strategy
