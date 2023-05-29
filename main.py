@@ -62,7 +62,7 @@ def output_write(cur_line, strategy_name, lots, counter):
     order_low_ratio = strategy_df[strategy_df['name'] == strategy_name]['order_low_ratio'].values[0]
 
     reference_price = cli.execute_query(f'''
-        SELECT * FROM sino.contracts where code = '{2330}'
+        SELECT * FROM sino.contracts where code = '{code}'
         ''', out_type='df')['reference'][0]
 
     lots_counter = 0
