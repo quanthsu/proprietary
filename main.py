@@ -128,7 +128,7 @@ def out_action():
     SELECT * FROM dealer.status where out_date = '{datetime.datetime.now().strftime("%Y-%m-%d")}'
     ''', out_type='df')
 
-    cur_status cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'B')", out_type='df')
+    cur_status = cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'B') union select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'S')", out_type='df')
 
     strategy_df = cli.execute_query('''
     SELECT * FROM dealer.strategy
@@ -140,27 +140,33 @@ def out_action():
     for index, row in cur_status.iterrows():
 
         strategy_name = strategy_df[strategy_df['id'] == row.strategy]['name'].values[0]
-        strategy_print_path = f"{config.signal_print_path}{strategy_name}"
-        f_buy = open(f"{strategy_print_path}\Buy.log", 'a+')
-        f_sell = open(f"{strategy_print_path}\Sell.log", 'a+')
-        cur_contracts_df = cli.execute_query(f'''
-            SELECT * FROM sino.contracts where code = '{row.code}'
-            ''', out_type='df')
-        
-        if row.security_type == 'S': security_type = 'Stock' 
-        if row.security_type == 'F': security_type = 'Futures'
-        action = 'S' if row.qty > 0 else 'B'
+        holding_period = strategy_df[strategy_df['id'] == row.strategy]['holding_period'].values[0]
 
-        signal_list = [f'O{counter}', security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', action, str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_down'].values[0]]
-        counter += 1
+        expected_out_date = datetime.datetime.date(
+            xtai.sessions_window(
+                pd.Timestamp(row.first_entry_date.strftime("%Y-%m-%d")), 7
+            )[-1]
+        )
 
-        if action == 'B':
-            f_buy.write(','.join(signal_list) + '\n')
-        elif action == 'S':
-            f_sell.write(','.join(signal_list) + '\n')
+        if expected_out_date == datetime.datetime.now().date():
+            
+            strategy_print_path = f"{config.signal_print_path}{strategy_name}"
+            f_buy = open(f"{strategy_print_path}\Buy.log", 'a+')
+            f_sell = open(f"{strategy_print_path}\Sell.log", 'a+')
+            cur_contracts_df = cli.execute_query(f'''
+                SELECT * FROM sino.contracts where code = '{row.code}'
+                ''', out_type='df') 
 
-        f_buy.close()
-        f_sell.close()
+            if row.action == 'B':
+                signal_list = [f'O{counter}', row.security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', 'S', str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_down'].values[0]]
+                f_sell.write(','.join(signal_list) + '\n')
+            elif row.action == 'S':
+                signal_list = [f'O{counter}', row.security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', 'B', str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_up'].values[0]]
+                f_buy.write(','.join(signal_list) + '\n')
+
+            f_buy.close()
+            f_sell.close()
+            counter += 1
     
 
 if __name__ == "__main__":

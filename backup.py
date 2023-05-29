@@ -4,6 +4,14 @@ import glob
 import math
 import datetime
 import os
+from tsdb_client import TSDBClient
+cli = TSDBClient(
+        host="128.110.25.99",
+        port=5432,
+        user="chiubj",
+        password="bunnygood",
+        db="accountdb"
+        )
 
 if __name__ == "__main__":
 
@@ -24,9 +32,11 @@ if __name__ == "__main__":
         fr.close()
         fw.close()
 
-    for xq_output_path in config.xq_output_paths:
-        strategy_file_name = xq_output_path.split('\\')[-1]
-        strategy_name = strategy_file_name[9:-4]
+    for strategy in cli.execute_query('''
+    SELECT name FROM dealer.strategy where status
+    '''):
+
+        strategy_name = strategy[0]
         
         strategy_print_path = f"{config.signal_print_path}{strategy_name}"
         strategy_backup_path = f"{nowtime_path}\{strategy_name}"
