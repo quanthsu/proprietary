@@ -128,7 +128,7 @@ def out_action():
     SELECT * FROM dealer.status where out_date = '{datetime.datetime.now().strftime("%Y-%m-%d")}'
     ''', out_type='df')
 
-    cur_status = cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'B') union select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'S')", out_type='df')
+    cur_status = cli.execute_query("select * from dealer.ft_get_positions_fifo(CURRENT_DATE-1, 'B') union all select * from dealer.ft_get_positions_fifo(CURRENT_DATE, 'S')", out_type='df')
 
     strategy_df = cli.execute_query('''
     SELECT * FROM dealer.strategy
@@ -144,7 +144,7 @@ def out_action():
 
         expected_out_date = datetime.datetime.date(
             xtai.sessions_window(
-                pd.Timestamp(row.first_entry_date.strftime("%Y-%m-%d")), 7
+                pd.Timestamp(row.first_entry_date.strftime("%Y-%m-%d")), holding_period
             )[-1]
         )
 
