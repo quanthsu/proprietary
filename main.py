@@ -153,11 +153,13 @@ def out_action():
                 SELECT * FROM sino.contracts where code = '{row.code}'
                 ''', out_type='df') 
 
+            security_type = 'Stock' if row.security_type == 'S' else 'Futures' 
+
             if row.action == 'B':
-                signal_list = [f'O{counter}', row.security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', 'S', str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_down'].values[0]]
+                signal_list = [f'O{counter}', security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', 'S', str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_down'].values[0]]
                 f_sell.write(','.join(signal_list) + '\n')
             elif row.action == 'S':
-                signal_list = [f'O{counter}', row.security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', 'B', str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_up'].values[0]]
+                signal_list = [f'O{counter}', security_type, str(datetime.datetime.now().timestamp()), row.code, 'ROD', 'B', str(abs(row.qty)), '%.2f'%cur_contracts_df['limit_up'].values[0]]
                 f_buy.write(','.join(signal_list) + '\n')
 
             f_buy.close()
